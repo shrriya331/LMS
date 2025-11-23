@@ -16,6 +16,7 @@ import java.time.Instant;
 @AllArgsConstructor
 @Builder
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -51,6 +52,20 @@ public class User {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    // ✅ Add this field for email verification
+    @Column(nullable = false)
+    private boolean enabled = false;
+
+    // (Optional, Lombok @Getter/@Setter will generate these anyway,
+    // but you can keep them if you want.)
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     @PrePersist
     protected void onCreate() {

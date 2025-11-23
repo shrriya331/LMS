@@ -5,8 +5,10 @@ import com.infy.lms.dto.RegistrationRequest;
 import com.infy.lms.model.User;
 import com.infy.lms.service.AuthService;
 import com.infy.lms.exception.UnauthorizedException;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +31,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
         User user = authService.authenticate(req);
+
         return ResponseEntity.ok(java.util.Map.of(
                 "id", user.getId(),
                 "email", user.getEmail(),
@@ -37,56 +40,15 @@ public class AuthController {
                 "firstLogin", user.getFirstLogin()
         ));
     }
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody User user) {
 
-        User saved = userService.register(user);
-
-        userService.sendVerificationEmail(saved);
-
-        return ResponseEntity.ok("Registration successful! Check your email.");
-    }
-
-    @GetMapping("/verify")
-    public ResponseEntity<String> verifyUser(@RequestParam String token) {
-
-        VerificationToken vToken = tokenRepo.findByToken(token);
-
-        if (vToken == null) {
-            return ResponseEntity.badRequest().body("Invalid token");
-        }
-
-        if (vToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("Token expired");
-        }
-
-        User user = vToken.getUser();
-        user.setEnabled(true);
-
-        userRepo.save(user);
-
-        return ResponseEntity.ok("Account verified successfully!");
-    }
-
-
-    /**
-     * Minimal admin login endpoint (used by the Admin frontend).
-     * Delegates authentication to AuthService then ensures the user has ADMIN role.
-     * Returns 200 OK with { "success": true } when valid, otherwise throws UnauthorizedException.
-     *
-     * Note: keep this small — if you later want tokens, replace the response with a JWT payload.
-     */
     @PostMapping("/admin/login")
     public ResponseEntity<?> adminLogin(@Valid @RequestBody LoginRequest req) {
-        User user = authService.authenticate(req); // will throw if invalid credentials / not approved
+        User user = authService.authenticate(req);
 
-        // ensure admin role
         if (user.getRole() == null || !"ADMIN".equalsIgnoreCase(user.getRole().name())) {
             throw new UnauthorizedException("Not an admin");
         }
 
         return ResponseEntity.ok(java.util.Map.of("success", true));
     }
-
-    // File upload endpoint will be in AdminController or separate controller (see below)
 }

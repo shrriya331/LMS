@@ -1,12 +1,13 @@
-package com.yourproject.yourapp.service;
+package com.infy.lms.service;
+
+import com.infy.lms.model.User;
+import com.infy.lms.model.VerificationToken;
+import com.infy.lms.repository.UserRepository;
+import com.infy.lms.repository.VerificationTokenRepository;
+import com.infy.lms.enums.UserStatus;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import com.yourproject.yourapp.repository.UserRepository;
-import com.yourproject.yourapp.repository.VerificationTokenRepository;
-import com.yourproject.yourapp.model.User;
-import com.yourproject.yourapp.model.VerificationToken;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,11 +24,16 @@ public class UserService {
     @Autowired
     private EmailService emailService;
 
+    // SAVE USER IN DATABASE WITH STATUS = PENDING
     public User register(User user) {
-        user.setEnabled(false); // user must verify
+
+        user.setStatus(UserStatus.PENDING);   // because your User model has UserStatus
+        user.setFirstLogin(true);
+
         return userRepository.save(user);
     }
 
+    // GENERATE TOKEN + SEND EMAIL
     public void sendVerificationEmail(User user) {
 
         String token = UUID.randomUUID().toString();
@@ -39,7 +45,7 @@ public class UserService {
 
         tokenRepo.save(vToken);
 
-        String url = "http://localhost:8080/api/auth/verify?token=" + token;
+        String url = "http://localhost:8081/api/auth/verify?token=" + token;
 
         emailService.sendEmail(
                 user.getEmail(),
