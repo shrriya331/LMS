@@ -38,6 +38,37 @@ public class AuthController {
                 "firstLogin", user.getFirstLogin()
         ));
     }
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody User user) {
+
+        User saved = userService.register(user);
+
+        userService.sendVerificationEmail(saved);
+
+        return ResponseEntity.ok("Registration successful! Check your email.");
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<String> verifyUser(@RequestParam String token) {
+
+        VerificationToken vToken = tokenRepo.findByToken(token);
+
+        if (vToken == null) {
+            return ResponseEntity.badRequest().body("Invalid token");
+        }
+
+        if (vToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body("Token expired");
+        }
+
+        User user = vToken.getUser();
+        user.setEnabled(true);
+
+        userRepo.save(user);
+
+        return ResponseEntity.ok("Account verified successfully!");
+    }
+
 
     // File upload endpoint will be in AdminController or separate controller (see below)
 }
