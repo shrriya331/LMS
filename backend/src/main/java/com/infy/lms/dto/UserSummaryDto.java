@@ -1,18 +1,18 @@
 package com.infy.lms.dto;
 
 import com.infy.lms.enums.Role;
-import com.infy.lms.enums.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+
+import java.time.Instant;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
 public class UserSummaryDto {
     private Long id;
-    private String email;
     private String name;
+    private String email;
+    private String phone;
     private Role role;
-    private UserStatus status;
+    private Instant createdAt;
 }

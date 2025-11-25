@@ -44,6 +44,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     }
 
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<?> handleConflict(ResourceAlreadyExistsException ex) {
+        return ResponseEntity.status(409).body(ex.getMessage());
+    }
+
+
     // --------------- Fallback Exception -----------------
 
     @ExceptionHandler(Exception.class)

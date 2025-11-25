@@ -18,10 +18,12 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
 
+
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
 
     /**
      * Minimal security config:
