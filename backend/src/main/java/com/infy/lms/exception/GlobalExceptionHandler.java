@@ -54,7 +54,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<Object> handleAll(Exception ex) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+        // print stacktrace to server console (helpful when running from IDE)
+        ex.printStackTrace();
+
+        // DEV ONLY: expose exception message in response so frontend can display it
+        String devMessage = ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred";
+
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, devMessage);
     }
 
     // --------------- Validation Errors ------------------

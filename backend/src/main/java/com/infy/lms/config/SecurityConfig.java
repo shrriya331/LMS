@@ -8,8 +8,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.*;
+
+import java.util.List;
 
 @Configuration
 @EnableMethodSecurity
@@ -18,33 +20,60 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
 
-
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-
     /**
-     * Minimal security config:
-     * - Allow CORS preflight
-     * - Keep /api/auth/** public
-     * - Use httpBasic() so Basic Auth headers are accepted (needed for testing with curl/Postman)
-     * - Method-level security ( @PreAuthorize ) will enforce ROLE_ADMIN on controllers
+     * Modern CORS bean for Spring Security 6+
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://localhost:5176"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    /**
+     * Spring Security 6.x style
+     */
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
         http
-                .csrf(csrf -> csrf.disable())
                 .userDetailsService(userDetailsService)
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                // CORS (new style)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // CSRF disabled new lambda style
+                .csrf(csrf -> csrf.disable())
+
+                // Authorization rules
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // allow preflight
                         .requestMatchers("/api/auth/**").permitAll()
                         .anyRequest().permitAll()
                 )
-                // Enable HTTP Basic so Authorization: Basic ... works
-                .httpBasic(basic -> {})
-                // form login not used
+
+                // Basic auth (new style)
+                .httpBasic(httpBasic -> {})
+
+                // Disable form login cleanly
                 .formLogin(form -> form.disable());
 
         return http.build();

@@ -14,5 +14,7 @@ public class UserSummaryDto {
     private String email;
     private String phone;
     private Role role;
+    private String status;       // ADDED
+    private String idProofPath;  // ADDED
     private Instant createdAt;
 }

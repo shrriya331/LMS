@@ -5,14 +5,22 @@ import com.infy.lms.dto.UserSummaryDto;
 import com.infy.lms.enums.UserStatus;
 import com.infy.lms.exception.BadRequestException;
 import com.infy.lms.exception.ResourceAlreadyExistsException;
+import com.infy.lms.exception.NotFoundException;
+import com.infy.lms.model.PasswordResetToken;
 import com.infy.lms.model.User;
+import com.infy.lms.repository.PasswordResetTokenRepository;
 import com.infy.lms.repository.UserRepository;
+
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -24,10 +32,17 @@ public class AuthService {
     private UserRepository userRepository;
 
     @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    private PasswordResetTokenRepository tokenRepository;
 
     @Autowired
-    private EmailService emailService; // real implementation (JavaMailSender)
+    private EmailService emailService;
+
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
+
+    private static final SecureRandom secureRandom = new SecureRandom();
+
+    // ------------------ Registration ------------------
 
     @Transactional
     public void registerUser(RegistrationRequest request, String idProofPath) {
@@ -50,12 +65,74 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    // ----------------- Admin actions -----------------
+    // ------------------ Password Reset Feature ------------------
 
     /**
-     * Approve a pending user. Sets status to APPROVED and returns saved User.
-     * Also sends an approval email (with idProof attachment if available).
+     * Generate token and send reset email (valid for 1 hour)
      */
+    @Transactional
+    public void createPasswordResetToken(String email, String frontendBaseURL) {
+
+        Optional<User> opt = userRepository.findByEmail(email);
+
+        // Do not reveal whether user exists
+        if (opt.isEmpty()) return;
+
+        User user = opt.get();
+
+        // Generate secure random token
+        byte[] random = new byte[32];
+        secureRandom.nextBytes(random);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
+
+        PasswordResetToken prt = new PasswordResetToken();
+        prt.setToken(token);
+        prt.setUser(user);
+        prt.setExpiresAt(Instant.now().plus(1, ChronoUnit.HOURS));
+
+        tokenRepository.save(prt);
+
+        String resetLink = frontendBaseURL + "?token=" + token;
+
+        String body = "<p>Hi " + user.getName() + ",</p>"
+                + "<p>You requested a password reset.</p>"
+                + "<p>Click the link below to reset your password (valid for 1 hour):</p>"
+                + "<p><a href='" + resetLink + "'>" + resetLink + "</a></p>"
+                + "<p>If you didn't request this, ignore this email.</p>";
+
+        emailService.sendEmail(user.getEmail(), "Password Reset - LMS", body);
+    }
+
+    /**
+     * Reset password using token
+     */
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+
+        PasswordResetToken prt = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new NotFoundException("Invalid or expired token"));
+
+        if (prt.getExpiresAt().isBefore(Instant.now())) {
+            tokenRepository.delete(prt);
+            throw new BadRequestException("Token expired");
+        }
+
+        User user = prt.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Token becomes single-use
+        tokenRepository.delete(prt);
+
+        String body = "<p>Hi " + user.getName() + ",</p>"
+                + "<p>Your password was successfully updated.</p>"
+                + "<p>If you didn't do this, contact support immediately.</p>";
+
+        emailService.sendEmail(user.getEmail(), "LMS Password Updated", body);
+    }
+
+    // ------------------ Admin Actions ------------------
+
     @Transactional
     public User approveUser(Long id) {
         Optional<User> opt = userRepository.findById(id);
@@ -70,15 +147,12 @@ public class AuthService {
         user.setEnabled(true);
         User saved = userRepository.save(user);
 
-        // Build email body
         String body = "<p>Hi " + saved.getName() + ",</p>"
-                + "<p>Your registration for LMS has been <strong>APPROVED</strong> by the admin.</p>"
-                + "<p>You can now log in using your credentials.</p>"
-                + "<p>Regards,<br/>LMS Team</p>";
+                + "<p>Your LMS account has been approved.</p>";
 
-        // Attach idProof if available
         if (saved.getIdProofPath() != null && !saved.getIdProofPath().isBlank()) {
-            emailService.sendEmailWithAttachment(saved.getEmail(), "LMS: Account Approved", body, saved.getIdProofPath());
+            emailService.sendEmailWithAttachment(saved.getEmail(),
+                    "LMS: Account Approved", body, saved.getIdProofPath());
         } else {
             emailService.sendEmail(saved.getEmail(), "LMS: Account Approved", body);
         }
@@ -86,10 +160,6 @@ public class AuthService {
         return saved;
     }
 
-    /**
-     * Reject a pending user. Sets status to REJECTED and returns saved User.
-     * Sends a rejection email (with optional reason).
-     */
     @Transactional
     public User rejectUser(Long id, String reason) {
         Optional<User> opt = userRepository.findById(id);
@@ -104,14 +174,12 @@ public class AuthService {
         User saved = userRepository.save(user);
 
         String body = "<p>Hi " + saved.getName() + ",</p>"
-                + "<p>Your registration for LMS has been <strong>REJECTED</strong> by the admin.</p>"
-                + "<p>Reason: " + (reason == null ? "Not provided" : escapeHtml(reason)) + "</p>"
-                + "<p>If you believe this is a mistake, please contact support.</p>"
-                + "<p>Regards,<br/>LMS Team</p>";
+                + "<p>Your LMS registration has been <strong>rejected</strong>.</p>"
+                + "<p>Reason: " + escapeHtml(reason) + "</p>";
 
-        // Attach idProof if available (optional)
         if (saved.getIdProofPath() != null && !saved.getIdProofPath().isBlank()) {
-            emailService.sendEmailWithAttachment(saved.getEmail(), "LMS: Account Rejected", body, saved.getIdProofPath());
+            emailService.sendEmailWithAttachment(saved.getEmail(),
+                    "LMS: Account Rejected", body, saved.getIdProofPath());
         } else {
             emailService.sendEmail(saved.getEmail(), "LMS: Account Rejected", body);
         }
@@ -119,17 +187,26 @@ public class AuthService {
         return saved;
     }
 
-    /**
-     * List all users with status PENDING and map to summary DTOs.
-     */
-    public List<UserSummaryDto> listPendingUsers() {
-        List<User> pending = userRepository.findAllByStatus(UserStatus.PENDING);
-        return pending.stream()
-                .map(u -> new UserSummaryDto(u.getId(), u.getName(), u.getEmail(), u.getPhone(), u.getRole(), u.getCreatedAt()))
+    // ------------------ List ALL USERS (Pending + Approved + Rejected) ------------------
+
+    public List<UserSummaryDto> listAllUsers() {
+        List<User> all = userRepository.findAll();
+
+        return all.stream()
+                .map(u -> new UserSummaryDto(
+                        u.getId(),
+                        u.getName(),
+                        u.getEmail(),
+                        u.getPhone(),
+                        u.getRole(),
+                        u.getStatus().name(),      // ADDED
+                        u.getIdProofPath(),        // ADDED
+                        u.getCreatedAt()
+                ))
                 .collect(Collectors.toList());
     }
 
-    // Simple HTML-escape for reason text to avoid breaking email HTML
+
     private String escapeHtml(String input) {
         if (input == null) return null;
         return input.replace("&", "&amp;")
@@ -137,4 +214,21 @@ public class AuthService {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
     }
+
+    public UserSummaryDto getUserSummaryByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        return new UserSummaryDto(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getPhone(),
+                user.getRole(),
+                user.getStatus().name(),
+                user.getIdProofPath(),
+                user.getCreatedAt()
+        );
+    }
+
 }

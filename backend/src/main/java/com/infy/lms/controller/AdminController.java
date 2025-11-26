@@ -45,8 +45,19 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<List<UserSummaryDto>> listUsers() {
-        List<UserSummaryDto> list = authService.listPendingUsers();
-        return ResponseEntity.ok(list);
+    public ResponseEntity<List<UserSummaryDto>> listUsers(
+            @RequestParam(required = false) String status
+    ) {
+        if (status == null || status.isBlank()) {
+            return ResponseEntity.ok(authService.listAllUsers());
+        }
+
+        // Allow filter: pending/approved/rejected
+        return ResponseEntity.ok(
+                authService.listAllUsers().stream()
+                        .filter(u -> u.getStatus().equalsIgnoreCase(status))
+                        .toList()
+        );
     }
+
 }
