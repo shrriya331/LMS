@@ -284,10 +284,11 @@ export default function AdminDashboard() {
     { label: "Penalties", path: "/admin/penalties", icon: "💰" },
     { label: "Issues", path: "/admin/requests", icon: "⚠️" },
     { label: "Requests", path: "/admin/acquisition-requests", icon: "📚" },
-
     { label: "Returns", path: "/admin/returns", icon: "🔄" },
+    { label: "AI Analytics", path: "/admin/ai-analytics", icon: "🤖" },
     { label: "Reports", path: "/admin/reports", icon: "📊" },
     { label: "Settings", path: "/admin/settings", icon: "⚙️" },
+    { label: "Logout", path: "logout", icon: "🚪" },
   ];
 
   return (
@@ -300,7 +301,7 @@ export default function AdminDashboard() {
           minWidth: '270px',
           maxWidth: '270px',
           flex: 'none',
-          background: '#472a16', // Solid Deep Brown (matches your image)
+          background: '#613613', // Solid Deep Brown (matches your image)
           color: '#FFF8E1',
           padding: '24px 0', // Vertical padding only, horiz padding handled by items
           boxShadow: '4px 0 15px rgba(0,0,0,0.1)',
@@ -330,16 +331,31 @@ export default function AdminDashboard() {
         <ul style={{ listStyle: "none", padding: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {menu.map((it) => {
             const isActive = it.path === "/admin" ? location.pathname === "/admin" || location.pathname === "/admin/" : location.pathname.startsWith(it.path);
+            const isLogout = it.path === "logout";
             return (
               <li key={it.path}>
                 <button
-                  onClick={() => navigate(it.path)}
-                  style={tabStyles(isActive)}
+                  onClick={() => isLogout ? (localStorage.removeItem("token"), localStorage.removeItem("user"), window.location.href = "/login") : navigate(it.path)}
+                  style={{
+                    ...tabStyles(isActive),
+                    color: isLogout ? '#ffcccb' : tabStyles(isActive).color,
+                    fontWeight: isLogout ? 600 : tabStyles(isActive).fontWeight,
+                  }}
                   onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(255, 248, 225, 0.1)';
+                    if (isLogout) {
+                      e.currentTarget.style.color = "#ff5252";
+                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+                    } else if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'rgba(255, 248, 225, 0.1)';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                    if (isLogout) {
+                      e.currentTarget.style.color = "#ffcccb";
+                      e.currentTarget.style.background = "transparent";
+                    } else if (!isActive) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
                   }}
                 >
                   <span style={{ fontSize: '1.1rem', width: '24px', textAlign: 'center' }}>{it.icon}</span>
@@ -349,44 +365,6 @@ export default function AdminDashboard() {
             );
           })}
         </ul>
-
-         {/* Logout button - Pushed to bottom */}
-         <div style={{ padding: '0 12px', marginTop: 'auto', marginBottom: '20px' }}>
-            <button
-              onClick={() => {
-                localStorage.removeItem("token");
-                localStorage.removeItem("user");
-                window.location.href = "/login";
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 20px",
-                width: "100%",
-                borderRadius: "30px",
-                background: "transparent",
-                color: "#ffcccb",
-                border: "none",
-                textAlign: "left",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                fontSize: '1rem'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "#ff5252";
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "#ffcccb";
-                e.currentTarget.style.background = "transparent";
-              }}
-            >
-              <span style={{ fontSize: "1.1rem", width: '24px', textAlign: 'center' }}>🚪</span>
-              <span>Logout</span>
-            </button>
-         </div>
 
         {/* User Info Footer */}
         <div style={{ padding: '20px 24px', borderTop: "1px solid rgba(255,255,255,0.1)" }}>

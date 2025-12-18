@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { getProfile, updateProfile } from '../../api/authApi';
-import client from '../../api/axiosClient';
 
 interface UserProfile {
   id: number;
@@ -37,35 +36,12 @@ interface UserProfile {
   emailNotifications?: boolean;
 }
 
-interface Activity {
-  id: number;
-  type: 'borrow' | 'return' | 'fine' | 'achievement' | 'review';
-  description: string;
-  timestamp: string;
-  icon: string;
-}
-
-// Add activity API type for backend response
-interface UserActivity {
-  id: number;
-  type: string;
-  description: string;
-  timestamp: string;
-  bookTitle?: string;
-  amount?: number;
-  badgeName?: string;
-}
-
 const StudentProfile: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showIdProofModal, setShowIdProofModal] = useState(false);
-  const [showProfilePictureModal, setShowProfilePictureModal] = useState(false);
-  const [selectedProfileImage, setSelectedProfileImage] = useState<File | null>(null);
-  const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null);
-  const [uploadingProfileImage, setUploadingProfileImage] = useState(false);
 
   // Form state
   const [editForm, setEditForm] = useState({
@@ -83,12 +59,11 @@ const StudentProfile: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
 
   // Calculate profile completeness percentage
-  const calculateProfileCompleteness = (userData: any): number => {
+  const calculateProfileCompleteness = (userData: Record<string, unknown>): number => {
     let completed = 0;
-    let total = 10;
+    const total = 10;
 
     // Basic fields
     if (userData.name) completed++;
@@ -114,7 +89,6 @@ const StudentProfile: React.FC = () => {
 
   useEffect(() => {
     loadProfile();
-    loadActivities();
   }, []);
 
   const loadProfile = async () => {
@@ -166,11 +140,12 @@ const StudentProfile: React.FC = () => {
         name: profileData.name,
         phone: profileData.phone || ''
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading profile:', error);
-      if (error?.response?.data?.error) {
-        console.error('API Error:', error.response.data.error);
-        showToast('error', 'Failed to load profile: ' + error.response.data.error);
+      if (error instanceof Error && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'error' in error.response.data) {
+        const apiError = error.response.data as { error: string };
+        console.error('API Error:', apiError.error);
+        showToast('error', 'Failed to load profile: ' + apiError.error);
       } else {
         showToast('error', 'Failed to load profile');
       }
@@ -204,7 +179,7 @@ const StudentProfile: React.FC = () => {
       };
 
       // Call real API to update profile
-      const response = await updateProfile(updateData);
+      await updateProfile(updateData);
 
       // Update profile completeness
       const newCompleteness = calculateProfileCompleteness({
@@ -235,70 +210,15 @@ const StudentProfile: React.FC = () => {
 
       setEditing(false);
       showToast('success', 'Profile updated successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error);
-      if (error?.response?.data?.error) {
-        console.error('API Error:', error.response.data.error);
-        showToast('error', 'Failed to update profile: ' + error.response.data.error);
+      if (error instanceof Error && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'error' in error.response.data) {
+        const apiError = error.response.data as { error: string };
+        console.error('API Error:', apiError.error);
+        showToast('error', 'Failed to update profile: ' + apiError.error);
       } else {
         showToast('error', 'Failed to update profile');
       }
-    }
-  };
-
-  const loadActivities = async () => {
-    try {
-      // Fetch real activity data from backend API
-      // Assuming there's an activity endpoint that returns user activities
-      const resp = await client.get('/api/user/activity/recent');
-
-      // Transform backend data to frontend format
-      const activities: Activity[] = resp.data.map((item: UserActivity) => ({
-        id: item.id,
-        type: item.type as Activity['type'],
-        description: generateActivityDescription(item),
-        timestamp: item.timestamp,
-        icon: getActivityIcon(item.type)
-      }));
-
-      setRecentActivities(activities);
-    } catch (error: any) {
-      console.error('Error loading activities:', error);
-      // If API fails, show empty activities instead of dummy data
-      setRecentActivities([]);
-      if (error?.response?.data?.error !== 'No recent activities found') {
-        console.warn('Failed to load activities, showing empty list');
-      }
-    }
-  };
-
-  // Helper function to generate activity descriptions based on type
-  const generateActivityDescription = (activity: UserActivity): string => {
-    switch (activity.type.toLowerCase()) {
-      case 'borrow':
-        return activity.bookTitle ? `Borrowed "${activity.bookTitle}"` : 'Borrowed a book';
-      case 'return':
-        return activity.bookTitle ? `Returned "${activity.bookTitle}"` : 'Returned a book';
-      case 'fine':
-        return activity.amount ? `Paid overdue fine of ₹${activity.amount}` : 'Paid overdue fine';
-      case 'achievement':
-        return activity.badgeName ? `Earned "${activity.badgeName}" badge` : 'Earned a new badge';
-      case 'review':
-        return activity.bookTitle ? `Reviewed "${activity.bookTitle}"` : 'Left a book review';
-      default:
-        return activity.description || 'Activity recorded';
-    }
-  };
-
-  // Helper function to get appropriate icon for activity type
-  const getActivityIcon = (type: string): string => {
-    switch (type.toLowerCase()) {
-      case 'borrow': return '📚';
-      case 'return': return '↩️';
-      case 'fine': return '💸';
-      case 'achievement': return '🏆';
-      case 'review': return '⭐';
-      default: return '📕';
     }
   };
 
@@ -324,7 +244,7 @@ const StudentProfile: React.FC = () => {
         confirmPassword: ''
       });
       showToast('success', 'Password changed successfully!');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error changing password:', error);
       showToast('error', 'Failed to change password');
     }
@@ -340,84 +260,6 @@ const StudentProfile: React.FC = () => {
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('en-IN').format(num);
-  };
-
-  const getMembershipStatusBadge = (status: string) => {
-    switch (status) {
-      case 'APPROVED':
-        return (
-          <span
-            style={{
-              color: '#2e7d32',
-              fontWeight: '600',
-              backgroundColor: '#e8f5e8',
-              border: '1px solid #4caf50',
-              padding: '6px 14px',
-              borderRadius: '25px',
-              fontSize: '0.8em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-            }}
-          >
-            ✅ ACTIVE
-          </span>
-        );
-      case 'PENDING':
-        return (
-          <span
-            style={{
-              color: '#ff9800',
-              fontWeight: '600',
-              backgroundColor: '#fff3e0',
-              border: '1px solid #ff5722',
-              padding: '6px 14px',
-              borderRadius: '25px',
-              fontSize: '0.8em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-            }}
-          >
-            ⏳ PENDING
-          </span>
-        );
-      case 'SUSPENDED':
-        return (
-          <span
-            style={{
-              color: '#c62828',
-              fontWeight: '600',
-              backgroundColor: '#ffebee',
-              border: '1px solid #f44336',
-              padding: '6px 14px',
-              borderRadius: '25px',
-              fontSize: '0.8em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-            }}
-          >
-            🚫 SUSPENDED
-          </span>
-        );
-      default:
-        return (
-          <span
-            style={{
-              color: '#5d6d7e',
-              fontWeight: '600',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #dee2e6',
-              padding: '6px 14px',
-              borderRadius: '25px',
-              fontSize: '0.8em',
-            }}
-          >
-            {status}
-          </span>
-        );
-    }
   };
 
   if (loading) {
@@ -801,8 +643,6 @@ const StudentProfile: React.FC = () => {
       }}>
         {[
           { id: 'overview', label: '📊 Overview', icon: '📊' },
-          { id: 'achievements', label: '🏆 Achievements', icon: '🏆' },
-          { id: 'activity', label: '📈 Activity', icon: '📈' },
           { id: 'settings', label: '⚙️ Settings', icon: '⚙️' }
         ].map(tab => (
           <button
@@ -1068,197 +908,6 @@ const StudentProfile: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Reading Insights */}
-            <div style={{ marginBottom: '30px' }}>
-              <h3 style={{ color: '#2A1F16', margin: '0 0 20px 0', fontSize: '1.4rem' }}>
-                📖 Reading Insights
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                <div style={{
-                  background: '#f8f9fa',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  <h4 style={{ color: '#2A1F16', margin: '0 0 8px 0', fontSize: '1.1rem' }}>
-                    Reading Streak 🔥
-                  </h4>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#8B4513', marginBottom: '4px' }}>
-                    {profile.readingStreak} days
-                  </div>
-                  <p style={{ color: '#666', fontSize: '0.9rem', margin: '0' }}>
-                    Keep it up! You're on fire! 🎯
-                  </p>
-                </div>
-
-                <div style={{
-                  background: '#f8f9fa',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  <h4 style={{ color: '#2A1F16', margin: '0 0 8px 0', fontSize: '1.1rem' }}>
-                    Total Reading Time ⏱️
-                  </h4>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#8B4513', marginBottom: '4px' }}>
-                    {profile.totalReadTime}h
-                  </div>
-                  <p style={{ color: '#666', fontSize: '0.9rem', margin: '0' }}>
-                    Hours of knowledge gained 📚
-                  </p>
-                </div>
-
-                <div style={{
-                  background: '#f8f9fa',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  <h4 style={{ color: '#2A1F16', margin: '0 0 8px 0', fontSize: '1.1rem' }}>
-                    Favorite Genres �
-                  </h4>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
-                    {profile.favoriteGenres?.map((genre, index) => (
-                      <span key={index} style={{
-                        background: '#8B4513',
-                        color: 'white',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '0.8rem',
-                        fontWeight: '500'
-                      }}>
-                        {genre}
-                      </span>
-                    )) || []}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'achievements' && (
-          <div style={{ padding: '30px' }}>
-            <h3 style={{ color: '#2A1F16', margin: '0 0 20px 0', fontSize: '1.4rem' }}>
-              🏆 Your Achievements
-            </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
-              {profile.badges?.map((badge, index) => (
-                <div key={index} style={{
-                  background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
-                  border: '2px solid #8B4513',
-                  borderRadius: '12px',
-                  padding: '20px',
-                  textAlign: 'center',
-                  position: 'relative',
-                  boxShadow: '0 4px 15px rgba(139,69,19,0.1)'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    top: '-15px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: '30px',
-                    height: '30px',
-                    background: 'linear-gradient(45deg, #FFD700, #FFA500)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '3px solid white',
-                    fontSize: '1.2rem',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                  }}>
-                    🏆
-                  </div>
-                  <h4 style={{ color: '#2A1F16', margin: '15px 0 8px 0', fontSize: '1.1rem' }}>
-                    {badge}
-                  </h4>
-                  <p style={{ color: '#666', fontSize: '0.9rem', margin: '0' }}>
-                    Achievement unlocked! 🎉
-                  </p>
-                </div>
-              )) || []}
-
-              {/* Empty achievement slot */}
-              <div style={{
-                background: '#f8f9fa',
-                border: '2px dashed #dee2e6',
-                borderRadius: '12px',
-                padding: '20px',
-                textAlign: 'center',
-                opacity: '0.6'
-              }}>
-                <div style={{
-                  width: '30px',
-                  height: '30px',
-                  margin: '0 auto 10px',
-                  background: '#e9ecef',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.2rem'
-                }}>
-                  ❓
-                </div>
-                <p style={{ color: '#6c757d', fontSize: '0.9rem', margin: '0' }}>
-                  Complete more activities to unlock achievements!
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'activity' && (
-          <div style={{ padding: '30px' }}>
-            <h3 style={{ color: '#2A1F16', margin: '0 0 20px 0', fontSize: '1.4rem' }}>
-              📈 Recent Activity
-            </h3>
-
-            <div style={{ display: 'grid', gap: '12px' }}>
-              {recentActivities.map((activity) => (
-                <div key={activity.id} style={{
-                  background: '#f8f9fa',
-                  border: '1px solid #e9ecef',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '15px'
-                }}>
-                  <div style={{
-                    fontSize: '1.5rem',
-                    minWidth: '30px',
-                    textAlign: 'center'
-                  }}>
-                    {activity.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: '0 0 4px 0', color: '#2A1F16', fontSize: '0.95rem' }}>
-                      {activity.description}
-                    </p>
-                    <span style={{ color: '#666', fontSize: '0.8rem' }}>
-                      {new Date(activity.timestamp).toLocaleDateString('en-IN', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {recentActivities.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#6c757d' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📈</div>
-                <p>No recent activity yet. Start borrowing books to see your activity here!</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -1387,7 +1036,6 @@ const StudentProfile: React.FC = () => {
                 borderRadius: '12px',
                 border: '1px solid rgba(232, 209, 167, 0.3)'
               }}>
-
                 {/* Basic Information Section */}
                 <div style={{
                   background: 'white',
@@ -1549,8 +1197,8 @@ const StudentProfile: React.FC = () => {
                               transition: 'border-color 0.3s ease',
                               outline: 'none'
                             }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
+                            onFocus={(e) => e.currentTarget.style.borderColor = '#8B4513'}
+                            onBlur={(e) => e.currentTarget.style.borderColor = '#E8D1A7'}
                           />
                         ) : (
                           <div style={{
@@ -1591,8 +1239,8 @@ const StudentProfile: React.FC = () => {
                               transition: 'border-color 0.3s ease',
                               outline: 'none'
                             }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
+                            onFocus={(e) => e.currentTarget.style.borderColor = '#8B4513'}
+                            onBlur={(e) => e.currentTarget.style.borderColor = '#E8D1A7'}
                           />
                         ) : (
                           <div style={{
@@ -1607,536 +1255,6 @@ const StudentProfile: React.FC = () => {
                             {profile.studentId || 'Not provided'}
                           </div>
                         )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Academic Information Section */}
-                <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #E8D1A7',
-                  boxShadow: '0 4px 15px rgba(139, 69, 19, 0.08)'
-                }}>
-                  <h5 style={{
-                    color: '#2A1F16',
-                    margin: '0 0 16px 0',
-                    fontSize: '1rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <span style={{
-                      width: '6px',
-                      height: '20px',
-                      background: 'linear-gradient(180deg, #8B4513, #D2691E)',
-                      borderRadius: '3px'
-                    }} />
-                    🎓 Academic Information
-                  </h5>
-
-                  <div style={{ display: 'grid', gap: '16px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Course
-                        </label>
-                        {editing ? (
-                          <input
-                            type="text"
-                            value={profile.course || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, course: e.target.value } : null)}
-                            placeholder="e.g., Computer Science"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.course || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Year
-                        </label>
-                        {editing ? (
-                          <select
-                            value={profile.year || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, year: e.target.value } : null)}
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          >
-                            <option value="">Select Year</option>
-                            <option value="1st Year">1st Year</option>
-                            <option value="2nd Year">2nd Year</option>
-                            <option value="3rd Year">3rd Year</option>
-                            <option value="4th Year">4th Year</option>
-                            <option value="Post Graduate">Post Graduate</option>
-                          </select>
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.year || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact & Address Section */}
-                <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #E8D1A7',
-                  boxShadow: '0 4px 15px rgba(139, 69, 19, 0.08)'
-                }}>
-                  <h5 style={{
-                    color: '#2A1F16',
-                    margin: '0 0 16px 0',
-                    fontSize: '1rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <span style={{
-                      width: '6px',
-                      height: '20px',
-                      background: 'linear-gradient(180deg, #8B4513, #D2691E)',
-                      borderRadius: '3px'
-                    }} />
-                    🏠 Contact & Address
-                  </h5>
-
-                  <div style={{ display: 'grid', gap: '16px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{
-                        fontWeight: '600',
-                        color: '#2A1F16',
-                        fontSize: '0.85rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        Address
-                      </label>
-                      {editing ? (
-                        <textarea
-                          value={profile.address || ''}
-                          onChange={(e) => setProfile(prev => prev ? { ...prev, address: e.target.value } : null)}
-                          placeholder="Enter your complete address"
-                          rows={3}
-                          style={{
-                            padding: '12px 16px',
-                            border: '2px solid #E8D1A7',
-                            borderRadius: '8px',
-                            fontSize: '0.95rem',
-                            background: 'white',
-                            transition: 'border-color 0.3s ease',
-                            outline: 'none',
-                            resize: 'vertical'
-                          }}
-                          onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                          onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                        />
-                      ) : (
-                        <div style={{
-                          padding: '12px 16px',
-                          background: '#F9F6F0',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(232, 209, 167, 0.5)',
-                          fontSize: '0.95rem',
-                          color: '#2A1F16',
-                          fontWeight: '500',
-                          whiteSpace: 'pre-line'
-                        }}>
-                          {profile.address || 'Not provided'}
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Emergency Contact
-                        </label>
-                        {editing ? (
-                          <input
-                            type="text"
-                            value={profile.emergencyContactName || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, emergencyContactName: e.target.value } : null)}
-                            placeholder="Contact name"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.emergencyContactName || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Contact Phone
-                        </label>
-                        {editing ? (
-                          <input
-                            type="tel"
-                            value={profile.emergencyContactPhone || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, emergencyContactPhone: e.target.value } : null)}
-                            placeholder="Phone number"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.emergencyContactPhone || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interests & Preferences Section */}
-                <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '12px',
-                  border: '1px solid #E8D1A7',
-                  boxShadow: '0 4px 15px rgba(139, 69, 19, 0.08)'
-                }}>
-                  <h5 style={{
-                    color: '#2A1F16',
-                    margin: '0 0 16px 0',
-                    fontSize: '1rem',
-                    fontWeight: '700',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <span style={{
-                      width: '6px',
-                      height: '20px',
-                      background: 'linear-gradient(180deg, #8B4513, #D2691E)',
-                      borderRadius: '3px'
-                    }} />
-                    💭 Interests & Preferences
-                  </h5>
-
-                  <div style={{ display: 'grid', gap: '16px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Interests
-                        </label>
-                        {editing ? (
-                          <input
-                            type="text"
-                            value={profile.interests || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, interests: e.target.value } : null)}
-                            placeholder="e.g., Programming, Music, Sports"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.interests || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Hobbies
-                        </label>
-                        {editing ? (
-                          <input
-                            type="text"
-                            value={profile.hobbies || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, hobbies: e.target.value } : null)}
-                            placeholder="e.g., Reading, Photography, Gaming"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.hobbies || 'Not provided'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Monthly Reading Goal
-                        </label>
-                        {editing ? (
-                          <input
-                            type="number"
-                            value={profile.monthlyReadingGoal || ''}
-                            onChange={(e) => setProfile(prev => prev ? { ...prev, monthlyReadingGoal: parseInt(e.target.value) || undefined } : null)}
-                            placeholder="books per month"
-                            min="1"
-                            max="50"
-                            style={{
-                              padding: '12px 16px',
-                              border: '2px solid #E8D1A7',
-                              borderRadius: '8px',
-                              fontSize: '0.95rem',
-                              background: 'white',
-                              transition: 'border-color 0.3s ease',
-                              outline: 'none'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#8B4513'}
-                            onBlur={(e) => e.target.style.borderColor = '#E8D1A7'}
-                          />
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500'
-                          }}>
-                            {profile.monthlyReadingGoal ? `${profile.monthlyReadingGoal} books/month` : 'Not set'}
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{
-                          fontWeight: '600',
-                          color: '#2A1F16',
-                          fontSize: '0.85rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          Email Notifications
-                        </label>
-                        {editing ? (
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '12px 16px',
-                            border: '2px solid #E8D1A7',
-                            borderRadius: '8px',
-                            background: 'white',
-                            transition: 'border-color 0.3s ease'
-                          }}>
-                            <input
-                              type="checkbox"
-                              checked={profile.emailNotifications || false}
-                              onChange={(e) => setProfile(prev => prev ? { ...prev, emailNotifications: e.target.checked } : null)}
-                              style={{
-                                transform: 'scale(1.3)',
-                                accentColor: '#8B4513'
-                              }}
-                            />
-                            <span style={{
-                              fontSize: '0.95rem',
-                              color: '#2A1F16',
-                              fontWeight: '500'
-                            }}>
-                              Receive email notifications
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{
-                            padding: '12px 16px',
-                            background: '#F9F6F0',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(232, 209, 167, 0.5)',
-                            fontSize: '0.95rem',
-                            color: '#2A1F16',
-                            fontWeight: '500',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                          }}>
-                            {profile.emailNotifications ? '✅' : '❌'} {profile.emailNotifications ? 'Enabled' : 'Disabled'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{
-                        fontWeight: '600',
-                        color: '#2A1F16',
-                        fontSize: '0.85rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        Member Since
-                      </label>
-                      <div style={{
-                        padding: '12px 16px',
-                        background: '#F9F6F0',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(232, 209, 167, 0.5)',
-                        fontSize: '0.95rem',
-                        color: '#2A1F16',
-                        fontWeight: '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                        📅 {formatDate(profile.createdAt)}
                       </div>
                     </div>
                   </div>

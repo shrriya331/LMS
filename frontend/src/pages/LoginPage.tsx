@@ -192,8 +192,8 @@ export default function LoginPage() {
         .lp-submit-btn {
           width: 100%;
           padding: 14px;
-          background-color: #D7CCC8; /* Tan accent */
-          color: #3E2723;
+          background-color: #3E2723; /* Tan accent */
+          color: #F5F2EB;
           border: none;
           border-radius: 25px; /* Pill shape */
           font-size: 1rem;

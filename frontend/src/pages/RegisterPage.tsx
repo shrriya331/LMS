@@ -80,8 +80,8 @@ export default function RegisterPage() {
           width: 100%;
           padding: 16px;
           margin-bottom: 16px;
-          background-color: #D7CCC8; /* Tan accent */
-          color: #3E2723;
+          background-color: #3E2723; /* Tan accent */
+          color: #D7CCC8;
           border: none;
           border-radius: 12px;
           font-size: 1.1rem;

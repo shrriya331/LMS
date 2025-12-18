@@ -32,6 +32,7 @@ export default function LibraryDashboard() {
   const activeTab = useMemo(() => {
     const path = location.pathname;
 
+    if (path.includes("ai-analytics")) return "ai-analytics";
     if (path.includes("requests") && !path.includes("acquisition")) return "requests";
     if (path.includes("acquisition-requests")) return "acquisition-requests";
     if (path.includes("returns")) return "returns";
@@ -116,6 +117,7 @@ export default function LibraryDashboard() {
             { key: "acquisition-requests", label: "Acquisitions", icon: "📚" },
             { key: "returns", label: "Returns", icon: "🔄" },
             { key: "penalties", label: "Penalties", icon: "💰" },
+            { key: "ai-analytics", label: "AI Analytics", icon: "🤖" },
             { key: "reports", label: "Reports", icon: "📊" },
             { key: "settings", label: "Settings", icon: "⚙️" },
             { key: "logout", label: "Logout", icon: "🚪" }

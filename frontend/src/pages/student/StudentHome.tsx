@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { searchBooks, getBookDetails, createIssueRequest, getMonthlyRequestCount, getSubscriptionStatus } from '../../api/libraryApi';
+import React, { useState, useEffect, useContext } from 'react';
+import { searchBooks, getBookDetails, createIssueRequest, getMonthlyRequestCount, getSubscriptionStatus, getRecommendations, joinWaitlist } from '../../api/libraryApi';
+import { AuthContext } from '../../context/AuthContext';
 import type { Book } from '../../types/dto';
 
 const StudentHome: React.FC = () => {
+  const { auth } = useContext(AuthContext);
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +18,8 @@ const StudentHome: React.FC = () => {
     membershipType: 'NORMAL' | 'PREMIUM';
     isPremium: boolean;
   } | null>(null);
+  const [recommendations, setRecommendations] = useState<Book[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -24,6 +28,7 @@ const StudentHome: React.FC = () => {
     loadBooks();
     loadMonthlyCount();
     loadUserSubscriptionStatus();
+    loadRecommendations();
   }, []);
 
   useEffect(() => {
@@ -69,6 +74,22 @@ const StudentHome: React.FC = () => {
     }
   };
 
+  const loadRecommendations = async () => {
+    if (!auth.user?.id) return;
+
+    try {
+      setLoadingRecommendations(true);
+      const response = await getRecommendations(auth.user.id);
+      setRecommendations(response.data);
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+
+
   const showToast = (type: 'success' | 'error', message: string) => {
     setToastMessage({ type, message });
     setTimeout(() => setToastMessage(null), 5000);
@@ -100,9 +121,20 @@ const StudentHome: React.FC = () => {
       }
     }
 
+    const book = books.find(b => b.id === bookId);
+    const isAvailable = (book?.availableCopies || 0) > 0;
+
     setRequestingBookId(bookId);
     try {
-      await createIssueRequest(bookId);
+      if (isAvailable) {
+        // Book is available - use regular request API
+        await createIssueRequest(bookId);
+        setToastMessage({ type: 'success', message: 'Book request submitted successfully!' });
+      } else {
+        // Book is unavailable - join waitlist
+        await joinWaitlist(bookId);
+        setToastMessage({ type: 'success', message: 'Successfully joined the waitlist! You will be notified when the book becomes available.' });
+      }
 
       // Close modal immediately and refresh data
       setShowBookModal(false);
@@ -110,27 +142,45 @@ const StudentHome: React.FC = () => {
       loadBooks();
       loadMonthlyCount();
 
-      // Show success toast in global area (right corner)
-      setToastMessage({ type: 'success', message: 'Book request submitted successfully!' });
       setTimeout(() => setToastMessage(null), 5000);
 
     } catch (error: unknown) {
-      const axiosError = error as { response?: { data?: { message?: string } } };
+      console.error('❌ Request error:', error);
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: { message?: string };
+          statusText?: string;
+        };
+        message?: string;
+      };
+
+      console.log('Error details:', {
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        data: axiosError.response?.data,
+        message: axiosError.message
+      });
+
       const errorMessage = axiosError.response?.data?.message || '';
-      if (errorMessage.includes('already requested')) {
-        // Show error toast in global area
-        setToastMessage({ type: 'error', message: 'You have already requested this book' });
-        setTimeout(() => setToastMessage(null), 5000);
+
+      if (errorMessage.includes('already requested') || errorMessage.includes('already in the waitlist')) {
+        setToastMessage({ type: 'error', message: 'You have already requested this book or are in the waitlist' });
       } else if (errorMessage.includes('overdue')) {
         setToastMessage({ type: 'error', message: 'Cannot request books while you have overdue items' });
-        setTimeout(() => setToastMessage(null), 5000);
       } else if (errorMessage.includes('Monthly request limit exceeded')) {
         setToastMessage({ type: 'error', message: 'Monthly request limit exceeded (3 books per month)' });
-        setTimeout(() => setToastMessage(null), 5000);
       } else {
-        setToastMessage({ type: 'error', message: 'Failed to submit book request' });
-        setTimeout(() => setToastMessage(null), 5000);
+        const status = axiosError.response?.status;
+        if (status === 404) {
+          setToastMessage({ type: 'error', message: 'Backend API not available. Please ensure backend is running.' });
+        } else if (status === 500) {
+          setToastMessage({ type: 'error', message: 'Server error. Please check backend logs.' });
+        } else {
+          setToastMessage({ type: 'error', message: `${isAvailable ? 'Failed to submit book request' : 'Failed to join waitlist'}: ${axiosError.message || 'Unknown error'}` });
+        }
       }
+      setTimeout(() => setToastMessage(null), 8000);
     } finally {
       setRequestingBookId(null);
     }
@@ -577,6 +627,274 @@ const StudentHome: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Recommended Books Section - Enhanced Premium Design */}
+      {!loadingRecommendations && recommendations.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%)',
+          borderRadius: '20px',
+          padding: '2px',
+          marginBottom: '30px',
+          boxShadow: '0 12px 40px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255,255,255,0.1)',
+          position: 'relative',
+          overflow: 'hidden',
+          animation: 'glow 2s ease-in-out infinite alternate'
+        }}>
+          {/* Animated background elements */}
+          <div style={{
+            position: 'absolute',
+            top: '-50px',
+            right: '-50px',
+            width: '150px',
+            height: '150px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 6s ease-in-out infinite'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '-30px',
+            left: '-30px',
+            width: '100px',
+            height: '100px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 8s ease-in-out infinite reverse'
+          }} />
+          <div style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            width: '60px',
+            height: '60px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)',
+            borderRadius: '50%',
+            animation: 'float 5s ease-in-out infinite'
+          }} />
+
+          {/* Inner content container */}
+          <div style={{
+            background: 'linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%)',
+            borderRadius: '18px',
+            padding: '35px',
+            position: 'relative',
+            zIndex: 2,
+            backdropFilter: 'blur(10px)'
+          }}>
+            {/* Premium Badge */}
+            <div style={{
+              position: 'absolute',
+              top: '-10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
+              color: '#333',
+              padding: '8px 20px',
+              borderRadius: '25px',
+              fontSize: '0.9rem',
+              fontWeight: '800',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              boxShadow: '0 4px 15px rgba(255, 215, 0, 0.4)',
+              border: '2px solid rgba(255,255,255,0.8)',
+              zIndex: 3
+            }}>
+              ✨ AI-Powered Recommendations ✨
+            </div>
+
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px',
+              marginBottom: '25px',
+              marginTop: '15px'
+            }}>
+              <div style={{
+                fontSize: '3rem',
+                background: 'linear-gradient(135deg, #667eea, #764ba2, #f093fb, #f5576c)',
+                borderRadius: '50%',
+                width: '80px',
+                height: '80px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 25px rgba(102, 126, 234, 0.4), inset 0 2px 4px rgba(255,255,255,0.3)',
+                color: 'white',
+                animation: 'pulse 2s ease-in-out infinite'
+              }}>
+                🤖
+              </div>
+              <div style={{ flex: 1 }}>
+                <h2 style={{
+                  color: '#333',
+                  margin: '0 0 8px 0',
+                  fontSize: '2.2rem',
+                  fontWeight: '800',
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  Recommended for You
+                </h2>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '8px'
+                }}>
+                  <span style={{
+                    background: 'linear-gradient(135deg, #4CAF50, #45a049)',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '15px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    🎯 Smart AI
+                  </span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, #FF9800, #F57C00)',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: '15px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    📊 Personalized
+                  </span>
+                </div>
+                <p style={{
+                  color: '#666',
+                  margin: 0,
+                  fontSize: '1.1rem',
+                  fontWeight: '500',
+                  lineHeight: '1.5'
+                }}>
+                  Our advanced AI analyzes your reading patterns, preferences, and borrowing history to suggest books you'll absolutely love! 📚✨
+                </p>
+              </div>
+            </div>
+
+            {/* Recommendations Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+              gap: '20px'
+            }}>
+              {recommendations.slice(0, 8).map((book) => (
+                <div
+                  key={`rec-${book.id}`}
+                  style={{
+                    background: 'rgba(255,255,255,0.9)',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                  onClick={() => handleBookClick(book)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.borderColor = '#2196f3';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                  }}
+                >
+
+                  {/* Book Title */}
+                  <h3 style={{
+                    color: '#1a1a1a',
+                    fontSize: '1.2rem',
+                    fontWeight: '600',
+                    margin: '0 0 8px 0',
+                    lineHeight: '1.4',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    minHeight: '38px'
+                  }}>
+                    {book.title}
+                  </h3>
+
+                  {/* Author and Genre in consistent layout */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    marginBottom: '15px',
+                    minHeight: '60px'
+                  }}>
+                    {/* Author - always in same position */}
+                    <p style={{
+                      color: '#666',
+                      fontSize: '0.9rem',
+                      margin: '0',
+                      fontStyle: 'italic',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      height: '24px',
+                      lineHeight: '24px'
+                    }}>
+                      <span>✍️</span>
+                      by {book.author}
+                    </p>
+
+                    {/* Genre Badge - always in same position */}
+                    {book.genre && (
+                      <span style={{
+                        alignSelf: 'flex-start',
+                        background: 'linear-gradient(135deg, #8B4513 0%, #D2691E 100%)',
+                        color: '#FFF8DC',
+                        padding: '6px 12px',
+                        borderRadius: '15px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        border: '1px solid rgba(139,69,19,0.3)',
+                        height: '28px',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                      }}>
+                        {book.genre}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Availability */}
+                  <div style={{
+                    marginTop: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {getAvailabilityBadge(book)}
+                    {getAccessLevelBadge(book)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+
 
       {/* Search Controls */}
       <div style={{

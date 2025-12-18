@@ -27,6 +27,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import SettingsPage from "./pages/admin/SettingsPage";
 import Reports from "./pages/admin/ReportsPage";
+import AIAnalyticsPage from "./pages/admin/AIAnalyticsPage";
 import AcquisitionRequestsManagementPage from "./pages/admin/AcquisitionRequestsManagementPage";
 import ReturnsPage from "./pages/admin/ReturnsPage";
 
@@ -94,6 +95,7 @@ export default function App() {
             <Route path="acquisition-requests" element={<AcquisitionRequestsManagementPage />} />
 
             <Route path="returns" element={<ReturnsPage />} />
+            <Route path="ai-analytics" element={<AIAnalyticsPage />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
@@ -116,6 +118,7 @@ export default function App() {
             <Route path="edit-book/:id" element={<EditBook />} />
             <Route path="issue-book" element={<IssueBook />} />
 
+            <Route path="ai-analytics" element={<AIAnalyticsPage />} />
             <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="system" element={<SystemPage />} />

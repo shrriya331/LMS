@@ -204,3 +204,41 @@ export interface PenaltyDTO {
 export interface PaymentRequestDTO {
   amount: number;
 }
+
+// Waitlist interfaces
+export interface BookWaitlist {
+  id: number;
+  bookId: number;
+  bookTitle: string;
+  bookAuthor: string;
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  joinedAt: string; // ISO date string
+  priorityScore: number;
+  queuePosition: number;
+  estimatedWaitDays: number;
+  waitingDays: number;
+  courseUrgencyBonus: number;
+  lateReturnPenalty: number;
+  membershipBonus: number;
+  isActive: boolean;
+  priorityReason?: string;
+  estimatedAvailableDate?: string;
+}
+
+export interface BookReservation {
+  id: number;
+  bookId: number;
+  bookTitle: string;
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  reservedAt: string; // ISO date string
+  expiresAt: string; // ISO date string
+  status: 'ACTIVE' | 'EXPIRED' | 'CANCELLED' | 'CONVERTED_TO_BORROW';
+  notificationSent: boolean;
+  timeRemaining?: string;
+  isExpired?: boolean;
+  isActive?: boolean;
+}

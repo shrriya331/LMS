@@ -187,45 +187,33 @@ const StudentDashboard = () => {
               Profile
             </button>
           </li>
-        </ul>
 
-        {/* Logout Button - Pushed to bottom */}
-        <div style={{ padding: '0 12px', marginTop: 'auto', marginBottom: '20px' }}>
-          <button
-            onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.href = '/';
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "12px 20px",
-              width: "100%",
-              borderRadius: "30px",
-              background: "transparent",
-              color: "#ffcccb",
-              border: "none",
-              textAlign: "left",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              fontSize: '1rem'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "#ff5252";
-              e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "#ffcccb";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <span style={{ fontSize: "1.1rem", width: '24px', textAlign: 'center' }}>🚪</span>
-            <span>Logout</span>
-          </button>
-        </div>
+          <li>
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+              }}
+              style={{
+                ...tabStyles(false),
+                color: '#ffcccb',
+                fontWeight: 600,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#ff5252";
+                e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#ffcccb";
+                e.currentTarget.style.background = "transparent";
+              }}
+            >
+              <span style={{ fontSize: '1.1rem', width: '24px', textAlign: 'center' }}>🚪</span>
+              Logout
+            </button>
+          </li>
+        </ul>
       </div>
 
       {/* Main Content */}

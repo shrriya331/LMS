@@ -140,28 +140,6 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
-
-      {/* Scheduling Section */}
-      <div style={{ marginTop: 32, background: "white", padding: 24, borderRadius: 12, boxShadow: "0 6px 18px rgba(2,6,23,0.06)" }}>
-        <h3 style={{ margin: "0px 0px 16px 0px", fontSize: 18, fontWeight: 700, color: "#111827" }}>Scheduled Reports</h3>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-          Configure automated report generation and email delivery. This feature can be set up to send weekly/monthly reports to administrators.
-        </p>
-        <div style={{ marginTop: 16, padding: 16, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-          <em>Scheduled reports feature integration pending - contact system administrator for setup</em>
-        </div>
-      </div>
-
-      {/* Email Recipients Section */}
-      <div style={{ marginTop: 20, background: "white", padding: 24, borderRadius: 12, boxShadow: "0 6px 18px rgba(2,6,23,0.06)" }}>
-        <h3 style={{ margin: "0px 0px 16px 0px", fontSize: 18, fontWeight: 700, color: "#111827" }}>Email Recipients</h3>
-        <p style={{ margin: 0, color: "#6b7280", fontSize: 14 }}>
-          Configure email addresses for automated report delivery.
-        </p>
-        <div style={{ marginTop: 16, padding: 16, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-          <em>Email delivery configuration pending - contact system administrator for setup</em>
-        </div>
-      </div>
     </div>
   );
 }

@@ -146,4 +146,25 @@ export const downloadReport = (type: string, format: 'csv' | 'excel' = 'csv', fi
     responseType: 'blob'
   });
 
+/* Recommendations */
+export const getRecommendations = (userId: number) => client.get(`/api/recommendations/${userId}`);
+export const getPopularBooksAnalytics = () => client.get("/api/recommendations/analytics/popular-books");
+export const getCategoryTrendsAnalytics = () => client.get("/api/recommendations/analytics/category-trends");
+
+/* Waitlist APIs */
+export const joinWaitlist = (bookId: number) =>
+  client.post(`/api/waitlist/join/${bookId}`);
+
+export const leaveWaitlist = (bookId: number) =>
+  client.delete(`/api/waitlist/leave/${bookId}`);
+
+export const getMyWaitlist = () =>
+  client.get('/api/waitlist/my-waitlist');
+
+export const getWaitlistPosition = (bookId: number) =>
+  client.get(`/api/waitlist/position/${bookId}`);
+
+export const getBookWaitlist = (bookId: number) =>
+  client.get(`/api/waitlist/book/${bookId}`);
+
 /* Note: all responses are axios responses; callers should use `.data` or handle defensively */
